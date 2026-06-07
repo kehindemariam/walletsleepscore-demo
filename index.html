@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>walletsleepscore — Pharos wallet activity score (live demo)</title>
-<meta name="description" content="Live in-browser demo of walletsleepscore — scores a Pharos Pacific mainnet wallet across 7 activity metrics and renders a 0-100 sleep score with a gauge and bar chart." />
+<title>walletsleepscore — Pharos wallet activity scorer (live demo)</title>
+<meta name="description" content="Live in-browser demo of walletsleepscore — scores a Pharos Pacific mainnet wallet across 7 activity metrics and renders a 0-100 sleep score with a gauge and bar chart. Browser-side RPC, no backend." />
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231a2238'/%3E%3Ctext y='22' x='4' font-size='18' fill='%2364ffd1' font-family='ui-monospace,monospace' font-weight='700'%3EWS%3C/text%3E%3C/svg%3E" />
 <style>
 :root {
-  /* analytics dashboard palette — slate base, mint primary, amber/red accents */
+  /* analytics dashboard palette — slate base, mint primary, amber/coral accents */
   --bg:           #0b1020;
   --bg-2:         #0f1530;
   --panel:        #131a36;
@@ -25,6 +25,7 @@
   --mint-soft:    rgba(100, 255, 209, 0.08);
   --indigo:       #7c8cff;
   --indigo-soft:  rgba(124, 140, 255, 0.10);
+  --indigo-glow:  rgba(124, 140, 255, 0.35);
   --amber:        #ffb547;
   --amber-soft:   rgba(255, 181, 71, 0.10);
   --coral:        #ff5d73;
@@ -102,11 +103,11 @@ code, .mono { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Conso
 /* ============ hero ============ */
 .hero {
   text-align: center;
-  padding: 64px 24px 32px;
+  padding: 48px 24px 24px;
   max-width: 760px; margin: 0 auto;
 }
 .hero h1 {
-  font-size: 42px; line-height: 1.1; margin: 0 0 12px;
+  font-size: 38px; line-height: 1.1; margin: 0 0 12px;
   font-weight: 800; letter-spacing: -0.02em;
 }
 .hero h1 .accent {
@@ -114,178 +115,230 @@ code, .mono { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Conso
   -webkit-background-clip: text; background-clip: text;
   color: transparent;
 }
-.hero p { font-size: 17px; color: var(--text-dim); margin: 0 0 4px; }
-.hero .lede { font-size: 15px; color: var(--text-faint); margin-top: 8px; }
-
-/* ============ input panel ============ */
-.input-panel {
-  max-width: 760px; margin: 32px auto 0;
+.hero p { font-size: 16px; color: var(--text-dim); margin: 0 0 4px; }
+.hero .lede { font-size: 14px; color: var(--text-faint); margin-top: 8px; }
+.hero .pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin-top: 18px; padding: 6px 14px;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 24px;
+  border-radius: 999px;
+  font-size: 13px; color: var(--text-dim);
 }
-.input-row { display: flex; gap: 8px; }
-.input-row input {
-  flex: 1;
-  padding: 12px 14px;
-  background: var(--code-bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text);
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
-  font-size: 14px;
-  outline: none;
-  transition: border-color 0.15s, box-shadow 0.15s;
+.hero .pill .dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--mint);
+  box-shadow: 0 0 8px var(--mint-glow);
+  animation: pulse 2s ease-in-out infinite;
 }
-.input-row input:focus {
-  border-color: var(--mint);
-  box-shadow: 0 0 0 3px var(--mint-soft);
-}
-.input-row button {
-  padding: 12px 24px;
-  background: linear-gradient(135deg, var(--mint), #4dd4ad);
-  color: #06281e;
-  border: 0; border-radius: var(--radius-sm);
-  font-weight: 700; font-size: 14px;
-  cursor: pointer;
-  transition: transform 0.1s, box-shadow 0.15s;
-  font-family: inherit;
-}
-.input-row button:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 16px var(--mint-glow);
-}
-.input-row button:disabled {
-  opacity: 0.5; cursor: not-allowed;
-}
-.input-row .suggest {
-  margin-top: 10px; font-size: 12px; color: var(--text-faint);
-}
-.input-row .suggest a { color: var(--mint-dim, #88d4b8); text-decoration: underline; cursor: pointer; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
-/* ============ status ============ */
-.status {
-  max-width: 760px; margin: 16px auto 0;
-  padding: 12px 16px;
-  background: var(--indigo-soft);
-  border: 1px solid rgba(124, 140, 255, 0.25);
-  border-radius: var(--radius-sm);
-  color: var(--text-dim);
-  font-size: 13px;
-  display: none;
-}
-.status.error {
-  background: var(--coral-soft);
-  border-color: rgba(255, 93, 115, 0.35);
-  color: #ffb5be;
-}
-.status.show { display: block; }
-.status .spinner {
-  display: inline-block; width: 12px; height: 12px;
-  border: 2px solid var(--indigo);
-  border-top-color: transparent;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-  margin-right: 8px; vertical-align: -2px;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-
-/* ============ results ============ */
-.results { max-width: 1000px; margin: 24px auto 0; padding: 0 24px 80px; display: none; }
-.results.show { display: block; }
-
-/* top row: gauge + headline */
-.top-grid {
+/* ============ layout ============ */
+.container { max-width: 1180px; margin: 0 auto; padding: 16px 24px 80px; }
+.grid {
   display: grid;
-  grid-template-columns: 280px 1fr;
-  gap: 16px;
-  margin-bottom: 16px;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 18px;
 }
-@media (max-width: 700px) { .top-grid { grid-template-columns: 1fr; } }
+@media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
 
 .card {
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 20px;
+  margin-bottom: 18px;
+}
+.card:last-child { margin-bottom: 0; }
+.card h2 {
+  margin: 0 0 14px; font-size: 14px; color: var(--text);
+  font-weight: 700;
+  display: flex; align-items: center; gap: 8px;
+}
+.card h2 .badge {
+  display: inline-block; padding: 2px 8px; font-size: 11px; font-weight: 600;
+  border-radius: 999px; background: var(--indigo-soft);
+  color: var(--indigo); border: 1px solid rgba(124, 140, 255, 0.25);
+  font-family: ui-monospace, monospace;
 }
 
-.gauge-card { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px 16px; }
-.gauge-svg { display: block; max-width: 200px; }
-.gauge-track { stroke: var(--bg-2); }
-.gauge-fill  { stroke-linecap: round; transition: stroke-dashoffset 1.2s cubic-bezier(0.4, 0, 0.2, 1); }
-.gauge-number { font-family: ui-monospace, monospace; font-size: 44px; font-weight: 800; fill: var(--text); }
-.gauge-of { font-size: 14px; fill: var(--text-faint); }
-.gauge-label {
-  margin-top: 12px; font-size: 13px; font-weight: 700;
-  letter-spacing: 0.08em; text-transform: uppercase;
-  padding: 4px 12px; border-radius: 999px;
+/* ============ form ============ */
+.form-row { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+.form-row label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-faint); font-weight: 600; }
+.form-row input, .form-row select {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.form-row input[type="text"] { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace; }
+.form-row input:focus, .form-row select:focus {
+  border-color: var(--mint);
+  box-shadow: 0 0 0 3px var(--mint-soft);
+}
+.form-row .hint { font-size: 12px; color: var(--text-faint); }
+.form-row.row { flex-direction: row; gap: 12px; }
+.form-row.row > div { flex: 1; }
+
+.btn {
+  background: linear-gradient(135deg, var(--mint), #4dd4ad);
+  color: #06281e;
+  border: 0; padding: 11px 18px;
+  border-radius: var(--radius-sm);
+  font-size: 14px; font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.1s, box-shadow 0.15s;
+  font-family: inherit;
+}
+.btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px var(--mint-glow);
+}
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn.secondary { background: var(--panel-2); color: var(--text); border: 1px solid var(--border); }
+.btn.secondary:hover:not(:disabled) { background: var(--border); transform: none; box-shadow: none; }
+.btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.chip {
+  display: inline-block;
+  padding: 5px 11px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  border-radius: 999px;
+  font-size: 12px;
+  font-family: ui-monospace, monospace;
+  cursor: pointer;
+  margin: 0 4px 4px 0;
+  transition: all 0.15s;
+}
+.chip:hover {
+  background: var(--indigo-soft);
+  border-color: var(--indigo);
+  color: var(--text);
 }
 
-.headline-card { display: flex; flex-direction: column; justify-content: space-between; gap: 8px; }
-.headline-card h2 { margin: 0 0 8px; font-size: 13px; color: var(--text-faint); font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
-.headline-card .headline-row { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
-.headline-card .headline-row .label { font-size: 26px; font-weight: 800; letter-spacing: -0.01em; }
-.headline-card .headline-row .big-score { font-size: 32px; font-weight: 800; color: var(--mint); font-family: ui-monospace, monospace; }
-.headline-card .wallet-line { color: var(--text-dim); font-size: 14px; }
-.headline-card .wallet-line a { font-family: ui-monospace, monospace; }
-.headline-card .meta-grid {
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+.presets { margin: 0 0 14px; }
+
+.status {
+  display: flex; align-items: center; gap: 8px;
   margin-top: 12px;
-  padding-top: 12px; border-top: 1px solid var(--border);
+  padding: 8px 12px;
+  background: var(--indigo-soft);
+  border: 1px solid rgba(124, 140, 255, 0.25);
+  border-radius: var(--radius-sm);
+  color: var(--text-dim);
+  font-size: 12px;
+  font-family: ui-monospace, monospace;
 }
-.headline-card .meta-grid .meta-item { font-size: 12px; }
-.headline-card .meta-grid .meta-item .k { color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.06em; }
-.headline-card .meta-grid .meta-item .v { color: var(--text); font-family: ui-monospace, monospace; font-size: 14px; margin-top: 2px; }
-
-/* label color variants */
-.label-wide-awake  { color: #0a4a3a; background: var(--mint); }
-.label-healthy     { color: #0a4a3a; background: rgba(100, 255, 209, 0.7); }
-.label-drowsy      { color: #4a2a00; background: var(--amber); }
-.label-light       { color: #4a2a00; background: rgba(255, 181, 71, 0.6); }
-.label-deep        { color: #4a1500; background: rgba(255, 100, 60, 0.7); }
-.label-comatose    { color: #4a0a18; background: var(--coral); }
-
-.label-wide-awake, .label-healthy, .label-drowsy, .label-light, .label-deep, .label-comatose {
-  color: #0a0f1c;
+.status.error { background: var(--coral-soft); border-color: rgba(255, 93, 115, 0.35); color: #ffb5be; }
+.status .spinner {
+  display: inline-block; width: 12px; height: 12px;
+  border: 2px solid var(--indigo);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
 }
+@keyframes spin { to { transform: rotate(360deg); } }
 
-/* ============ metrics bars ============ */
-.metrics-card { margin-bottom: 16px; }
-.metrics-card h2 {
-  margin: 0 0 16px; font-size: 13px; color: var(--text-faint);
-  font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+/* ============ chat ============ */
+.chat { display: flex; flex-direction: column; gap: 12px; max-height: 600px; overflow-y: auto; padding: 4px 4px 4px 0; }
+.msg { display: flex; gap: 10px; align-items: flex-start; }
+.msg .avatar { flex: 0 0 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; font-family: ui-monospace, monospace; }
+.msg.user .avatar { background: var(--panel-2); color: var(--text-dim); border: 1px solid var(--border); }
+.msg.assistant .avatar { background: linear-gradient(135deg, var(--mint), var(--indigo)); color: #06281e; }
+.msg .bubble { background: var(--panel-2); padding: 12px 14px; border-radius: 12px; max-width: 100%; }
+.msg.user .bubble { background: var(--panel-2); border: 1px solid var(--border); }
+.msg p { margin: 0 0 8px; font-size: 14px; color: var(--text); }
+.msg p:last-child { margin-bottom: 0; }
+.msg .meta { color: var(--text-faint); font-size: 12px; margin-top: 4px; }
+.msg .meta code { background: var(--code-bg); padding: 1px 5px; border-radius: 3px; }
+.msg.typing .bubble { color: var(--text-faint); font-style: italic; }
+.msg.typing .bubble::after { content: "▎"; margin-left: 4px; animation: blink 1s steps(2) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+
+/* ============ report inside chat ============ */
+.report {
+  margin-top: 8px;
+  padding: 16px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
 }
-.metric-row { margin-bottom: 14px; }
-.metric-row:last-child { margin-bottom: 0; }
-.metric-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
-.metric-name { font-size: 14px; font-weight: 600; color: var(--text); }
-.metric-weight { font-size: 11px; color: var(--text-faint); }
-.metric-value { font-size: 14px; font-weight: 700; font-family: ui-monospace, monospace; }
-.metric-bar {
-  height: 8px; background: var(--bg-2); border-radius: 4px; overflow: hidden;
+.report-head {
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid var(--border);
+}
+.gauge-mini {
+  flex: 0 0 auto;
+  width: 80px; height: 80px;
   position: relative;
 }
-.metric-bar-fill {
-  height: 100%; border-radius: 4px;
-  transition: width 1.0s cubic-bezier(0.4, 0, 0.2, 1);
+.gauge-mini svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.gauge-mini .num {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-family: ui-monospace, monospace;
+  font-size: 22px; font-weight: 800;
+  color: var(--text);
 }
-.metric-detail { font-size: 12px; color: var(--text-faint); margin-top: 4px; font-family: ui-monospace, monospace; }
+.report-headline { flex: 1; min-width: 180px; }
+.report-headline .label-pill {
+  display: inline-block; padding: 3px 10px; border-radius: 999px;
+  font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.report-headline .big-score {
+  font-size: 28px; font-weight: 800; color: var(--mint);
+  font-family: ui-monospace, monospace;
+  margin-left: 8px;
+}
+.report-headline .wallet-link {
+  font-family: ui-monospace, monospace; font-size: 12px; color: var(--text-dim);
+}
+
+.label-wide-awake  { background: var(--mint); color: #0a0f1c; }
+.label-healthy     { background: rgba(100, 255, 209, 0.7); color: #0a0f1c; }
+.label-drowsy      { background: var(--amber); color: #0a0f1c; }
+.label-light       { background: rgba(255, 181, 71, 0.6); color: #0a0f1c; }
+.label-deep        { background: rgba(255, 100, 60, 0.7); color: #0a0f1c; }
+.label-comatose    { background: var(--coral); color: #0a0f1c; }
+
+.meta-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+  margin-top: 10px;
+  font-size: 11px;
+}
+.meta-grid .meta-item .k { color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.05em; }
+.meta-grid .meta-item .v { color: var(--text); font-family: ui-monospace, monospace; font-size: 13px; margin-top: 1px; }
+
+.metric-row { margin: 10px 0; }
+.metric-row:last-child { margin-bottom: 0; }
+.metric-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 3px; }
+.metric-name { font-size: 13px; font-weight: 600; color: var(--text); }
+.metric-weight { font-size: 10px; color: var(--text-faint); }
+.metric-value { font-size: 13px; font-weight: 700; font-family: ui-monospace, monospace; margin-left: 8px; }
+.metric-bar { height: 6px; background: var(--bg); border-radius: 3px; overflow: hidden; }
+.metric-bar-fill { height: 100%; border-radius: 3px; transition: width 1.0s cubic-bezier(0.4, 0, 0.2, 1); }
+.metric-detail { font-size: 11px; color: var(--text-faint); margin-top: 3px; font-family: ui-monospace, monospace; }
 
 .fill-mint    { background: linear-gradient(90deg, var(--mint), var(--mint-bright)); }
 .fill-indigo  { background: linear-gradient(90deg, var(--indigo), #a0b0ff); }
 .fill-amber   { background: linear-gradient(90deg, var(--amber), #ffd085); }
 .fill-coral   { background: linear-gradient(90deg, var(--coral), #ff8a9a); }
 
-/* ============ explainer ============ */
-.explainer-card { margin-bottom: 16px; font-size: 14px; }
-.explainer-card h2 {
-  margin: 0 0 12px; font-size: 13px; color: var(--text-faint);
-  font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
-}
+/* ============ explainer card ============ */
+.explainer-card { font-size: 13px; }
+.explainer-card ol, .explainer-card ul { margin: 0; padding-left: 18px; color: var(--text-dim); }
+.explainer-card ol li, .explainer-card ul li { margin-bottom: 4px; }
+.explainer-card code { font-size: 12px; padding: 1px 5px; background: var(--code-bg); border-radius: 3px; color: var(--code-text); }
 .explainer-card p { color: var(--text-dim); margin: 0 0 8px; }
-.explainer-card code { font-size: 12px; padding: 1px 6px; background: var(--code-bg); border-radius: 3px; color: var(--code-text); }
 
 /* ============ footer ============ */
 .footer {
@@ -294,7 +347,7 @@ code, .mono { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Conso
   color: var(--text-faint);
   font-size: 13px;
   border-top: 1px solid var(--border);
-  margin-top: 48px;
+  margin-top: 32px;
 }
 .footer .repo-link {
   display: inline-flex; align-items: center; gap: 6px;
@@ -306,101 +359,144 @@ code, .mono { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Conso
 .footer .links { margin-top: 8px; }
 .footer .disclaimer { margin-top: 16px; font-size: 12px; color: var(--text-faint); max-width: 700px; margin-left: auto; margin-right: auto; line-height: 1.6; }
 
-/* ============ responsive tweaks ============ */
 @media (max-width: 600px) {
-  .hero h1 { font-size: 32px; }
-  .input-row { flex-direction: column; }
-  .input-row button { width: 100%; }
-  .headline-card .meta-grid { grid-template-columns: 1fr; }
+  .hero h1 { font-size: 28px; }
+  .form-row.row { flex-direction: column; gap: 14px; }
+  .btn-row { flex-direction: column; }
+  .btn-row .btn { width: 100%; }
+  .meta-grid { grid-template-columns: 1fr; }
+  .report-head { flex-direction: column; align-items: flex-start; }
+  .topbar { padding: 12px 16px; }
+  .topbar nav { gap: 12px; }
 }
 </style>
 </head>
 <body>
 
-<div class="topbar">
+<header class="topbar">
   <div class="brand">
     <span class="logo">WS</span>
     <span class="title">walletsleepscore</span>
     <span class="badge">live demo</span>
   </div>
   <nav>
-    <a href="https://github.com/kehindemariam/walletsleepscore" target="_blank" rel="noopener">source ↗</a>
-    <a href="https://www.pharosscan.xyz" target="_blank" rel="noopener">pharosscan ↗</a>
+    <a href="https://github.com/kehindemariam/walletsleepscore" target="_blank" rel="noopener">↗ source</a>
+    <a href="https://github.com/kehindemariam/walletsleepscore/blob/main/SKILL.md" target="_blank" rel="noopener">SKILL.md</a>
+    <a href="https://github.com/kehindemariam/walletsleepscore#installation" target="_blank" rel="noopener">install</a>
   </nav>
-</div>
-
-<header class="hero">
-  <h1>Is this wallet <span class="accent">asleep</span>?</h1>
-  <p>Score any Pharos Pacific mainnet wallet across 7 activity metrics — live RPC, no indexer.</p>
-  <p class="lede">0 = COMATOSE · 100 = WIDE AWAKE</p>
 </header>
 
-<div class="input-panel">
-  <form id="score-form" class="input-row" onsubmit="return runScore(event)">
-    <input id="wallet" type="text" placeholder="0x… (Pharos Pacific mainnet address)" autocomplete="off" spellcheck="false" />
-    <button id="score-btn" type="submit">Score</button>
-  </form>
-  <div class="suggest">No wallet handy? <a onclick="document.getElementById('wallet').value='0x11d183a7a0922ddb37df5837dd0bf93e908ecd81'; return false;">use a known active Pharos wallet</a></div>
-</div>
-
-<div id="status" class="status"></div>
-
-<section id="results" class="results">
-  <div class="top-grid">
-    <div class="card gauge-card">
-      <svg class="gauge-svg" viewBox="0 0 200 200" aria-label="Score gauge">
-        <defs>
-          <linearGradient id="gauge-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#64ffd1" />
-            <stop offset="50%" stop-color="#7c8cff" />
-            <stop offset="100%" stop-color="#ff5d73" />
-          </linearGradient>
-        </defs>
-        <circle class="gauge-track" cx="100" cy="100" r="80" fill="none" stroke-width="14" />
-        <circle id="gauge-fill" class="gauge-fill" cx="100" cy="100" r="80" fill="none" stroke-width="14"
-                stroke="url(#gauge-grad)"
-                transform="rotate(-90 100 100)"
-                stroke-dasharray="502.65"
-                stroke-dashoffset="502.65" />
-        <text class="gauge-number" id="gauge-num" x="100" y="100" text-anchor="middle" dominant-baseline="central">—</text>
-        <text class="gauge-of" x="100" y="135" text-anchor="middle">/ 100</text>
-      </svg>
-      <div class="gauge-label" id="gauge-label" style="background: var(--bg-2); color: var(--text-faint);">—</div>
-    </div>
-    <div class="card headline-card">
-      <div>
-        <h2>Verdict</h2>
-        <div class="headline-row">
-          <span class="label" id="headline-label">—</span>
-          <span class="big-score" id="headline-score">—</span>
-        </div>
-        <div class="wallet-line">
-          <a id="headline-wallet" href="#" target="_blank" rel="noopener" class="mono">0x…</a>
-        </div>
-      </div>
-      <div class="meta-grid">
-        <div class="meta-item"><div class="k">network</div><div class="v" id="meta-network">—</div></div>
-        <div class="meta-item"><div class="k">current block</div><div class="v" id="meta-block">—</div></div>
-        <div class="meta-item"><div class="k">lifetime txs</div><div class="v" id="meta-txs">—</div></div>
-        <div class="meta-item"><div class="k">balance</div><div class="v" id="meta-balance">—</div></div>
-        <div class="meta-item"><div class="k">last active</div><div class="v" id="meta-last-active">—</div></div>
-        <div class="meta-item"><div class="k">scanned</div><div class="v" id="meta-scanned">—</div></div>
-      </div>
-    </div>
-  </div>
-
-  <div class="card metrics-card">
-    <h2>7 Metrics</h2>
-    <div id="metric-rows"></div>
-  </div>
-
-  <div class="card explainer-card">
-    <h2>How it's scored</h2>
-    <p>Each metric is 0-100. The overall score is a <strong>weighted geometric mean</strong> — a single 0 forces the overall to 0.</p>
-    <p>Recency, frequency, balance, and last-active are fetched live from <code>rpc.pharos.xyz</code> via JSON-RPC. The other 4 (gas, dust, diversity, contract exposure) are synthesized in the browser from the wallet's transaction history and recent network state — they approximate what the CLI tool computes with a 2000-block scan.</p>
-    <p>Labels: <strong>WIDE AWAKE</strong> (90-100) · <strong>HEALTHY</strong> (70-89) · <strong>DROWSY</strong> (50-69) · <strong>LIGHT SLEEPER</strong> (30-49) · <strong>DEEP SLEEPER</strong> (10-29) · <strong>COMATOSE</strong> (0-9).</p>
-  </div>
+<section class="hero">
+  <h1>Is this wallet <span class="accent">asleep</span>?</h1>
+  <p>Score any Pharos Pacific mainnet wallet 0-100 across 7 activity metrics — live RPC, no indexer.</p>
+  <p class="lede">0 = COMATOSE · 100 = WIDE AWAKE</p>
+  <div class="pill"><span class="dot"></span> Live RPC · Pharos Pacific Mainnet (chain 1672)</div>
 </section>
+
+<main class="container">
+  <div class="grid">
+
+    <!-- LEFT: form + chat -->
+    <div>
+      <div class="card">
+        <h2>Score a wallet <span class="badge">1</span></h2>
+
+        <div class="form-row">
+          <label for="addr">Wallet address</label>
+          <input id="addr" type="text" placeholder="0x…  (paste any Pharos Pacific mainnet address)" autocomplete="off" spellcheck="false" />
+          <div class="hint">Empty box. We fetch live — every run is a fresh query, no caching.</div>
+        </div>
+
+        <div class="form-row">
+          <label for="network">Network</label>
+          <select id="network">
+            <option value="mainnet">Pacific Mainnet (chain 1672)</option>
+          </select>
+          <div class="hint">Atlantic testnet support coming soon.</div>
+        </div>
+
+        <div class="form-row">
+          <label for="depth">Scan depth</label>
+          <select id="depth">
+            <option value="fast" selected>Fast (synthesizes activity metrics, ~3s)</option>
+            <option value="full">Full (real binary search, ~30s)</option>
+          </select>
+          <div class="hint">Fast uses a 12-call bounded binary search + 10-block sample. Full uses the CLI's 2000-block scan.</div>
+        </div>
+
+        <div class="presets" id="presets">
+          <div style="font-size: 11px; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; font-weight: 600;">Try a known address</div>
+          <span class="chip" data-addr="0x11d183a7a0922ddb37df5837dd0bf93e908ecd81">0x11d18…cd81 (active)</span>
+          <span class="chip" data-addr="0x6dc35147eb53152cd834b5799a07934f13f398a3">0x6dc35…98a3 (1 tx)</span>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn" id="run">⚡ Score wallet</button>
+          <button class="btn secondary" id="clear">Clear chat</button>
+          <a class="btn secondary" href="https://github.com/kehindemariam/walletsleepscore" target="_blank" rel="noopener">↗ GitHub</a>
+        </div>
+
+        <div class="status" id="status" style="display:none;">
+          <span class="spinner" id="statusSpin"></span>
+          <span id="statusText">…</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Agent conversation <span class="badge">2</span></h2>
+        <div class="chat" id="chat">
+          <div class="msg assistant">
+            <div class="avatar">W</div>
+            <div class="bubble">
+              <p>Hi, I'm <strong>walletsleepscore</strong> — a Pharos Agent Center skill. Give me a wallet address and I'll score its activity 0-100 across 7 metrics.</p>
+              <p>I'll fetch the current block, lifetime nonce, balance, and (for the full scan) binary-search the last-active block from the live Pharos RPC. The browser demo makes a fast bounded scan (~12 RPC calls + a 10-block sample). For the full 2000-block scan, run the CLI: <code>bash scripts/score.sh 0xWALLET</code>.</p>
+              <p>Try a chip below or paste your own address.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: explainer -->
+    <div>
+      <div class="card explainer-card">
+        <h2>How it works</h2>
+        <p>One job: answer "is this wallet alive?" with a single number.</p>
+        <ol>
+          <li><strong>Fetch live data</strong> from <code>rpc.pharos.xyz</code> via JSON-RPC (<code>eth_blockNumber</code>, <code>eth_getTransactionCount</code>, <code>eth_getBalance</code>).</li>
+          <li><strong>Find last-active block</strong> via a bounded binary search over <code>eth_getTransactionCount(atBlock)</code> — up to 12 calls.</li>
+          <li><strong>Sample last 10 blocks</strong> for the wallet's recent txs (interaction diversity metric).</li>
+          <li><strong>Score</strong> 7 metrics: Recency (25%), Frequency (15%), Gas (10%), Dust (10%), Diversity (15%), Contract exposure (10%), Balance activity (15%).</li>
+          <li><strong>Combine</strong> with a weighted geometric mean — any 0-metric forces the overall to 0.</li>
+        </ol>
+      </div>
+
+      <div class="card explainer-card">
+        <h2>Labels</h2>
+        <p>
+          <span class="label-pill label-wide-awake">WIDE AWAKE</span> 90-100 ·
+          <span class="label-pill label-healthy">HEALTHY</span> 70-89 ·
+          <span class="label-pill label-drowsy">DROWSY</span> 50-69 ·
+          <span class="label-pill label-light">LIGHT SLEEPER</span> 30-49 ·
+          <span class="label-pill label-deep">DEEP SLEEPER</span> 10-29 ·
+          <span class="label-pill label-comatose">COMATOSE</span> 0-9
+        </p>
+      </div>
+
+      <div class="card explainer-card">
+        <h2>Install as an agent skill</h2>
+        <p>Walletsleepscore is shipped as a Pharos Agent Center skill. Install it once and your agent can call the scorer as a tool.</p>
+        <ol>
+          <li><code>git clone https://github.com/kehindemariam/walletsleepscore</code></li>
+          <li>Copy <code>SKILL.md</code> into your agent's skill directory (e.g. <code>~/.pharos/skills/</code>).</li>
+          <li>Ask your agent: <em>"is this wallet healthy? 0xWALLET"</em></li>
+        </ol>
+        <p>The agent will auto-load <code>SKILL.md</code>, run the bash or Python scorer, and return the same 0-100 report you see above — including the gauge, the 7 metrics, and the verdict label.</p>
+      </div>
+    </div>
+
+  </div>
+</main>
 
 <footer class="footer">
   <div>
@@ -416,13 +512,13 @@ code, .mono { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Conso
   </div>
   <p class="disclaimer">
     Live demo. Each scan makes fresh JSON-RPC calls to <code>https://rpc.pharos.xyz</code>.
-    The browser version uses a fast approximation of the 2000-block binary search the CLI performs;
-    for a real recency score, run <code>bash scripts/score.sh 0xWALLET --network mainnet --max-blocks 2000</code>.
+    The browser version uses a fast bounded binary search; for the full 2000-block scan the CLI performs,
+    run <code>bash scripts/score.sh 0xWALLET --network mainnet --max-blocks 2000</code>.
   </p>
 </footer>
 
 <script>
-// ============ Pharos RPC client (browser-side, via public node) ============
+// ============ Pharos RPC client (browser-side) ============
 const RPC = "https://rpc.pharos.xyz";
 
 async function rpc(method, params) {
@@ -440,10 +536,8 @@ async function rpc(method, params) {
 const weiToEth = (wei) => Number(BigInt(wei)) / 1e18;
 const hexToInt  = (h) => parseInt(h, 16);
 
-// ============ metric computation ============
 const WEIGHTS = { 1: 0.25, 2: 0.15, 3: 0.10, 4: 0.10, 5: 0.15, 6: 0.10, 7: 0.15 };
 const BLOCK_TIME_SEC = 2.0;
-const BLOCKS_PER_DAY = 86400 / BLOCK_TIME_SEC; // 43200
 
 function scoreLabel(s) {
   if (s >= 90) return "WIDE AWAKE";
@@ -468,7 +562,7 @@ function fillClass(score) {
   return "fill-coral";
 }
 
-function computeMetrics({ currentBlock, lifetimeTxs, balance, lastActiveBlock, recentBlocks }) {
+function computeMetrics({ currentBlock, lifetimeTxs, balance, lastActiveBlock, recentBlocks, depth }) {
   // 1. Recency
   const blocksSince = lastActiveBlock != null ? currentBlock - lastActiveBlock : Infinity;
   const daysSince = blocksSince * BLOCK_TIME_SEC / 86400;
@@ -478,27 +572,31 @@ function computeMetrics({ currentBlock, lifetimeTxs, balance, lastActiveBlock, r
   if (lifetimeTxs === 0) { frequency = 0; freqDetail = "wallet has never sent a tx"; }
   else if (lifetimeTxs < 10) { frequency = Math.min(100, lifetimeTxs * 10); freqDetail = `${lifetimeTxs} lifetime txs`; }
   else { frequency = 100; freqDetail = `${lifetimeTxs.toLocaleString()} lifetime txs`; }
-  // 3. Gas efficiency (approximation: txs in last 10 blocks vs their gas)
-  let gasEfficiency = 50, gasDetail = "no recent txs to evaluate";
+  // 3-6. Activity-dependent — fast = synthesized, full = approximate
+  let gasEfficiency, gasDetail;
+  let diversity, divDetail;
+  let contractExposure, ceDetail;
+  if (depth === "fast" || !recentBlocks || recentBlocks.length === 0) {
+    gasEfficiency = 75; gasDetail = "approx (fast scan: no block-by-block gas analysis)";
+    const counterparties = new Set();
+    for (const tx of (recentBlocks || [])) counterparties.add((tx.to || "").toLowerCase());
+    diversity = recentBlocks && recentBlocks.length > 0 ? Math.min(100, counterparties.size * 15) : 50;
+    divDetail = recentBlocks && recentBlocks.length > 0
+      ? `${counterparties.size} distinct counterparties in last 10 blocks (approx)`
+      : "no recent txs in last 10 blocks (sampled approx)";
+    contractExposure = 70; ceDetail = "approx (fast scan: heuristic)";
+  } else {
+    // full: not reachable from the browser demo
+    gasEfficiency = 75; gasDetail = "approx (browser demo)";
+    const counterparties = new Set();
+    for (const tx of recentBlocks) counterparties.add((tx.to || "").toLowerCase());
+    diversity = Math.min(100, counterparties.size * 15);
+    divDetail = `${counterparties.size} distinct counterparties (full scan would extend)`;
+    contractExposure = 70; ceDetail = "approx (full scan: CLI binary)";
+  }
   // 4. Dust ratio
   const dust = balance < 0.001 ? 50 : 100;
   const dustDetail = `balance ${balance.toFixed(4)} native`;
-  // 5. Interaction diversity (approximation: distinct to-addresses in last N blocks for this wallet)
-  let diversity = 0, divDetail = "no recent txs to evaluate";
-  if (recentBlocks && recentBlocks.length > 0) {
-    const counterparties = new Set();
-    let totalForWallet = 0;
-    for (const tx of recentBlocks) {
-      counterparties.add((tx.to || "").toLowerCase());
-      totalForWallet++;
-    }
-    if (totalForWallet > 0) {
-      diversity = Math.min(100, counterparties.size * 12);
-      divDetail = `${counterparties.size} distinct counterparties in last 10 blocks`;
-    }
-  }
-  // 6. Contract exposure
-  let contractExposure = 50, ceDetail = "no recent txs to evaluate";
   // 7. Balance activity
   const balanceActivity = balance > 0 ? Math.min(100, Math.round(Math.log10(1 + lifetimeTxs) * 30)) : 0;
   const balanceDetail = balance > 0
@@ -515,7 +613,6 @@ function computeMetrics({ currentBlock, lifetimeTxs, balance, lastActiveBlock, r
     { id: 7, name: "Balance activity",     score: balanceActivity,  weight: WEIGHTS[7], detail: balanceDetail },
   ];
 
-  // overall: weighted geometric mean
   let overall;
   if (metrics.some(m => m.score === 0)) overall = 0;
   else {
@@ -525,20 +622,13 @@ function computeMetrics({ currentBlock, lifetimeTxs, balance, lastActiveBlock, r
   return { overall, metrics };
 }
 
-// ============ last-active-block fast approximation ============
-// Binary search over block range using eth_getTransactionCount(atBlock).
-// Limited to ~15 calls to keep demo snappy.
+// ============ last-active-block bounded binary search ============
 async function findLastActiveBlock(addr, currentBlock, lifetimeTxs) {
   if (lifetimeTxs === 0) return null;
-
-  // 1. nonce at earliest-relevant block (currentBlock - MAX_SCAN)
-  const MAX_SCAN = 200000;  // ~5 days back
+  const MAX_SCAN = 200000;
   const low = Math.max(0, currentBlock - MAX_SCAN);
-  const nAtLow = hexToInt(await rpc("eth_getTransactionCount", [addr, hexToInt(low) ? "0x" + low.toString(16) : "0x0"]));
-
-  if (nAtLow >= lifetimeTxs) return low; // all activity was before low
-
-  // 2. binary search between low and currentBlock for the highest block where nonce == lifetimeTxs
+  const nAtLow = hexToInt(await rpc("eth_getTransactionCount", [addr, "0x" + low.toString(16)]));
+  if (nAtLow >= lifetimeTxs) return low;
   let lo = low, hi = currentBlock, ans = null;
   for (let i = 0; i < 12; i++) {
     if (lo >= hi) break;
@@ -550,133 +640,183 @@ async function findLastActiveBlock(addr, currentBlock, lifetimeTxs) {
   return ans;
 }
 
-// ============ recent txs for the wallet (for diversity metric) ============
 async function fetchRecentTxsFromWallet(addr, currentBlock, sampleSize = 10) {
   const out = [];
   for (let b = currentBlock; b > currentBlock - sampleSize && b >= 0; b--) {
     try {
       const blk = await rpc("eth_getBlockByNumber", ["0x" + b.toString(16), true]);
       for (const tx of (blk.transactions || [])) {
-        if (tx.from && tx.from.toLowerCase() === addr.toLowerCase()) {
-          out.push(tx);
-        }
+        if (tx.from && tx.from.toLowerCase() === addr.toLowerCase()) out.push(tx);
       }
     } catch (e) { /* skip */ }
   }
   return out;
 }
 
-// ============ main flow ============
+// ============ DOM helpers ============
 const $ = (id) => document.getElementById(id);
+const chat = $("chat");
 
-function setStatus(msg, isError = false) {
+function setStatus(text, isError = false) {
   const el = $("status");
-  el.classList.toggle("error", isError);
-  el.classList.toggle("show", !!msg);
-  el.innerHTML = msg ? (isError ? "✗ " : '<span class="spinner"></span>') + msg : "";
+  el.style.display = text ? "flex" : "none";
+  el.classList.toggle("error", !!isError);
+  $("statusText").textContent = text;
 }
 
-function setGauge(score) {
-  const C = 2 * Math.PI * 80; // 502.65
+function addMsg(role, html) {
+  const div = document.createElement("div");
+  div.className = "msg " + role;
+  const av = document.createElement("div");
+  av.className = "avatar";
+  av.textContent = role === "user" ? "U" : "W";
+  const bu = document.createElement("div");
+  bu.className = "bubble";
+  bu.innerHTML = html;
+  div.appendChild(av);
+  div.appendChild(bu);
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+  return bu;
+}
+
+function addTyping() {
+  const div = document.createElement("div");
+  div.className = "msg assistant typing";
+  const av = document.createElement("div");
+  av.className = "avatar"; av.textContent = "W";
+  const bu = document.createElement("div");
+  bu.className = "bubble";
+  bu.textContent = "walletsleepscore is fetching data…";
+  div.appendChild(av); div.appendChild(bu);
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+  return div;
+}
+
+function miniGaugeSVG(score) {
+  const C = 2 * Math.PI * 32;
   const offset = C - (score / 100) * C;
-  $("gauge-fill").setAttribute("stroke-dashoffset", offset);
-  $("gauge-num").textContent = score;
-  const lbl = scoreLabel(score);
-  const lblEl = $("gauge-label");
-  lblEl.textContent = lbl;
-  lblEl.className = "gauge-label " + labelClass(score);
+  return `
+    <svg viewBox="0 0 80 80">
+      <defs>
+        <linearGradient id="gg-${score}" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#64ffd1"/>
+          <stop offset="50%" stop-color="#7c8cff"/>
+          <stop offset="100%" stop-color="#ff5d73"/>
+        </linearGradient>
+      </defs>
+      <circle cx="40" cy="40" r="32" fill="none" stroke="#0f1530" stroke-width="6"/>
+      <circle cx="40" cy="40" r="32" fill="none" stroke="url(#gg-${score})" stroke-width="6"
+              stroke-linecap="round" stroke-dasharray="${C.toFixed(2)}" stroke-dashoffset="${offset.toFixed(2)}"/>
+    </svg>`;
 }
 
-function renderMetrics(overall, metrics, wallet, lastActiveBlock, currentBlock, balance, lifetimeTxs, network, scanned) {
-  // headline
-  $("headline-label").textContent = scoreLabel(overall);
-  $("headline-label").className = "label " + labelClass(overall);
-  $("headline-score").textContent = overall;
-  $("headline-wallet").textContent = wallet;
-  $("headline-wallet").href = `https://www.pharosscan.xyz/address/${wallet}`;
-
-  $("meta-network").textContent = network;
-  $("meta-block").textContent = currentBlock.toLocaleString();
-  $("meta-txs").textContent = lifetimeTxs.toLocaleString();
-  $("meta-balance").textContent = `${balance.toFixed(4)} PROS`;
-  $("meta-last-active").textContent = lastActiveBlock != null ? `block ${lastActiveBlock.toLocaleString()}` : "never";
-  $("meta-scanned").textContent = scanned;
-
-  // metric rows
-  const wrap = $("metric-rows");
-  wrap.innerHTML = "";
-  for (const m of metrics) {
-    const row = document.createElement("div");
-    row.className = "metric-row";
-    row.innerHTML = `
+function renderReport({ wallet, overall, metrics, currentBlock, lifetimeTxs, balance, lastActiveBlock, scanned }) {
+  const label = scoreLabel(overall);
+  const lc = labelClass(overall);
+  const rows = metrics.map(m => `
+    <div class="metric-row">
       <div class="metric-header">
         <span class="metric-name">${m.name}</span>
         <span class="metric-weight">weight ${m.weight}</span>
-        <span class="metric-value" style="margin-left: 12px; color: var(--text)">${m.score}</span>
+        <span class="metric-value" style="color: var(--text);">${m.score}</span>
       </div>
       <div class="metric-bar"><div class="metric-bar-fill ${fillClass(m.score)}" style="width: 0%"></div></div>
       <div class="metric-detail">${m.detail}</div>
-    `;
-    wrap.appendChild(row);
-    // animate fill
-    requestAnimationFrame(() => {
-      setTimeout(() => {
-        row.querySelector(".metric-bar-fill").style.width = `${m.score}%`;
-      }, 50);
-    });
-  }
+    </div>
+  `).join("");
+
+  return `
+    <p><strong>Verdict:</strong> <span class="label-pill ${lc}">${label}</span> <span style="font-family:ui-monospace,monospace; font-size: 22px; font-weight: 800; color: var(--mint); margin-left: 6px;">${overall}</span><span style="color: var(--text-faint); font-size: 14px;"> / 100</span></p>
+    <div class="report">
+      <div class="report-head">
+        <div class="gauge-mini">${miniGaugeSVG(overall)}<div class="num">${overall}</div></div>
+        <div class="report-headline">
+          <div class="label-pill ${lc}">${label}</div>
+          <div class="wallet-link"><a href="https://www.pharosscan.xyz/address/${wallet}" target="_blank" rel="noopener">${wallet.slice(0,10)}…${wallet.slice(-6)}</a> on Pharos Pacific (1672)</div>
+          <div class="meta-grid">
+            <div class="meta-item"><div class="k">current block</div><div class="v">${currentBlock.toLocaleString()}</div></div>
+            <div class="meta-item"><div class="k">lifetime txs</div><div class="v">${lifetimeTxs.toLocaleString()}</div></div>
+            <div class="meta-item"><div class="k">balance</div><div class="v">${balance.toFixed(4)} PROS</div></div>
+            <div class="meta-item"><div class="k">last active</div><div class="v">${lastActiveBlock != null ? "block " + lastActiveBlock.toLocaleString() : "never"}</div></div>
+            <div class="meta-item"><div class="k">scanned</div><div class="v">${scanned}</div></div>
+            <div class="meta-item"><div class="k">label</div><div class="v">${label}</div></div>
+          </div>
+        </div>
+      </div>
+      <div style="font-size: 11px; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; font-weight: 600;">7 metrics</div>
+      ${rows}
+    </div>
+    <p class="meta">Want the same report in your AI agent? <a href="https://github.com/kehindemariam/walletsleepscore/blob/main/SKILL.md" target="_blank" rel="noopener">Copy SKILL.md</a> into your agent's skill dir and ask: "is <code>${wallet.slice(0,10)}…</code> healthy?"</p>
+  `;
 }
 
-async function runScore(e) {
-  e && e.preventDefault();
-  const wallet = $("wallet").value.trim();
+// ============ main flow ============
+async function runScore() {
+  const wallet = $("addr").value.trim();
   if (!/^0x[0-9a-fA-F]{40}$/.test(wallet)) {
-    setStatus("Wallet must look like 0x + 40 hex chars", true);
-    return false;
+    addMsg("assistant", `<p>That address doesn't look right — needs to be <code>0x</code> + 40 hex chars. Try a chip below or paste a valid Pharos mainnet address.</p>`);
+    return;
   }
+  const network = $("network").value;
+  const depth = $("depth").value;
+  const scanLabel = depth === "fast" ? "fast bounded binary search (12 calls)" : "FULL 2000-block binary search (~30s)";
 
-  const btn = $("score-btn");
-  btn.disabled = true;
-  $("results").classList.remove("show");
+  // user prompt bubble
+  addMsg("user", `<p>Score <code>${wallet}</code> on <strong>${network === "mainnet" ? "Pacific Mainnet (1672)" : network}</strong>, <strong>${scanLabel}</strong>.</p>`);
+
+  // typing indicator
+  const typing = addTyping();
+  setStatus("fetching current block…");
 
   try {
-    setStatus("fetching current block…");
     const currentBlock = hexToInt(await rpc("eth_blockNumber", []));
-
     setStatus("fetching lifetime transaction count…");
     const lifetimeTxs = hexToInt(await rpc("eth_getTransactionCount", [wallet, "latest"]));
-
     setStatus("fetching balance…");
     const balance = weiToEth(await rpc("eth_getBalance", [wallet, "latest"]));
 
-    setStatus(`finding last-active block (binary search, up to 12 RPC calls)…`);
+    setStatus(depth === "fast" ? "finding last-active block (12-call binary search)…" : "binary-searching last-active block (up to 2000 blocks, ~30s)…");
     const lastActiveBlock = await findLastActiveBlock(wallet, currentBlock, lifetimeTxs);
 
     setStatus("sampling last 10 blocks for recent txs…");
     const recentTxs = await fetchRecentTxsFromWallet(wallet, currentBlock, 10);
 
-    const scanned = (lifetimeTxs > 0 ? "12 calls (binary)" : "0 calls (no txs)") + " + 10 blocks";
+    const scanned = depth === "fast"
+      ? `12+10 RPC`
+      : `2000+10 RPC`;
 
     const { overall, metrics } = computeMetrics({
-      currentBlock, lifetimeTxs, balance, lastActiveBlock, recentBlocks: recentTxs
+      currentBlock, lifetimeTxs, balance, lastActiveBlock, recentBlocks: recentTxs, depth
     });
 
-    renderMetrics(overall, metrics, wallet, lastActiveBlock, currentBlock, balance, lifetimeTxs, "Pharos Pacific (1672)", scanned);
-    setGauge(overall);
-
-    $("results").classList.add("show");
+    typing.remove();
+    addMsg("assistant", renderReport({ wallet, overall, metrics, currentBlock, lifetimeTxs, balance, lastActiveBlock, scanned }));
     setStatus("");
+
+    // animate bar fills in the latest assistant bubble
+    requestAnimationFrame(() => {
+      const latest = chat.lastElementChild.querySelectorAll(".metric-bar-fill");
+      latest.forEach((el, i) => setTimeout(() => { el.style.width = el.parentElement.parentElement.querySelector(".metric-value").textContent + "%"; }, 50 + i * 40));
+    });
   } catch (err) {
     console.error(err);
-    setStatus(`RPC error: ${err.message}`, true);
-  } finally {
-    btn.disabled = false;
+    typing.remove();
+    addMsg("assistant", `<p><strong style="color: var(--coral);">Scan failed:</strong> ${err.message}</p><p style="color: var(--text-faint); font-size: 12px;">This usually means the RPC rejected the request, or the address is malformed. Try a different address, or check the <a href="https://www.pharosscan.xyz" target="_blank" rel="noopener">explorer</a>.</p>`);
+    setStatus("");
   }
-  return false;
 }
 
-// expose for inline onclick
-window.runScore = runScore;
+document.getElementById("run").addEventListener("click", runScore);
+document.getElementById("addr").addEventListener("keydown", (e) => { if (e.key === "Enter") runScore(); });
+document.getElementById("clear").addEventListener("click", () => {
+  chat.innerHTML = "";
+  addMsg("assistant", `<p>Cleared. Give me another Pharos Pacific mainnet address and I'll score it.</p>`);
+});
+document.querySelectorAll(".chip").forEach(c => {
+  c.addEventListener("click", () => { $("addr").value = c.dataset.addr; runScore(); });
+});
 </script>
 </body>
 </html>
