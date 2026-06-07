@@ -1,0 +1,682 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>walletsleepscore — Pharos wallet activity score (live demo)</title>
+<meta name="description" content="Live in-browser demo of walletsleepscore — scores a Pharos Pacific mainnet wallet across 7 activity metrics and renders a 0-100 sleep score with a gauge and bar chart." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231a2238'/%3E%3Ctext y='22' x='4' font-size='18' fill='%2364ffd1' font-family='ui-monospace,monospace' font-weight='700'%3EWS%3C/text%3E%3C/svg%3E" />
+<style>
+:root {
+  /* analytics dashboard palette — slate base, mint primary, amber/red accents */
+  --bg:           #0b1020;
+  --bg-2:         #0f1530;
+  --panel:        #131a36;
+  --panel-2:      #18214a;
+  --border:       #1f2a55;
+  --border-hot:   #2b3a78;
+  --text:         #e7ecff;
+  --text-dim:     #8a96c4;
+  --text-faint:   #5a6390;
+
+  --mint:         #64ffd1;
+  --mint-bright:  #a0ffe4;
+  --mint-glow:    rgba(100, 255, 209, 0.45);
+  --mint-soft:    rgba(100, 255, 209, 0.08);
+  --indigo:       #7c8cff;
+  --indigo-soft:  rgba(124, 140, 255, 0.10);
+  --amber:        #ffb547;
+  --amber-soft:   rgba(255, 181, 71, 0.10);
+  --coral:        #ff5d73;
+  --coral-soft:   rgba(255, 93, 115, 0.10);
+
+  --code-bg:      #08102a;
+  --code-text:    #c2cff5;
+
+  --radius:       10px;
+  --radius-sm:    6px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0; padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+body::before {
+  content: "";
+  position: fixed; inset: 0;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(124, 140, 255, 0.15) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 90% 10%, rgba(100, 255, 209, 0.08) 0%, transparent 60%);
+  pointer-events: none;
+  z-index: -1;
+}
+
+a { color: var(--mint); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code, .mono { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; }
+
+/* ============ topbar ============ */
+.topbar {
+  position: sticky; top: 0; z-index: 10;
+  background: rgba(11, 16, 32, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 24px;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px;
+}
+.topbar .brand {
+  display: flex; align-items: center; gap: 12px;
+  font-weight: 700; font-size: 15px;
+}
+.topbar .brand .logo {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; border-radius: 8px;
+  background: linear-gradient(135deg, #1a2238, #0f1530);
+  border: 1px solid var(--border-hot);
+  color: var(--mint); font-family: ui-monospace, monospace; font-size: 12px; font-weight: 700;
+  letter-spacing: 0.05em;
+}
+.topbar .brand .title { color: var(--text); }
+.topbar .brand .badge {
+  font-size: 11px; padding: 2px 8px;
+  background: var(--mint-soft);
+  color: var(--mint);
+  border: 1px solid rgba(100, 255, 209, 0.25);
+  border-radius: 999px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+.topbar nav { display: flex; gap: 20px; }
+.topbar nav a { color: var(--text-dim); font-size: 14px; }
+.topbar nav a:hover { color: var(--text); text-decoration: none; }
+
+/* ============ hero ============ */
+.hero {
+  text-align: center;
+  padding: 64px 24px 32px;
+  max-width: 760px; margin: 0 auto;
+}
+.hero h1 {
+  font-size: 42px; line-height: 1.1; margin: 0 0 12px;
+  font-weight: 800; letter-spacing: -0.02em;
+}
+.hero h1 .accent {
+  background: linear-gradient(135deg, var(--mint), var(--indigo));
+  -webkit-background-clip: text; background-clip: text;
+  color: transparent;
+}
+.hero p { font-size: 17px; color: var(--text-dim); margin: 0 0 4px; }
+.hero .lede { font-size: 15px; color: var(--text-faint); margin-top: 8px; }
+
+/* ============ input panel ============ */
+.input-panel {
+  max-width: 760px; margin: 32px auto 0;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+}
+.input-row { display: flex; gap: 8px; }
+.input-row input {
+  flex: 1;
+  padding: 12px 14px;
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.input-row input:focus {
+  border-color: var(--mint);
+  box-shadow: 0 0 0 3px var(--mint-soft);
+}
+.input-row button {
+  padding: 12px 24px;
+  background: linear-gradient(135deg, var(--mint), #4dd4ad);
+  color: #06281e;
+  border: 0; border-radius: var(--radius-sm);
+  font-weight: 700; font-size: 14px;
+  cursor: pointer;
+  transition: transform 0.1s, box-shadow 0.15s;
+  font-family: inherit;
+}
+.input-row button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px var(--mint-glow);
+}
+.input-row button:disabled {
+  opacity: 0.5; cursor: not-allowed;
+}
+.input-row .suggest {
+  margin-top: 10px; font-size: 12px; color: var(--text-faint);
+}
+.input-row .suggest a { color: var(--mint-dim, #88d4b8); text-decoration: underline; cursor: pointer; }
+
+/* ============ status ============ */
+.status {
+  max-width: 760px; margin: 16px auto 0;
+  padding: 12px 16px;
+  background: var(--indigo-soft);
+  border: 1px solid rgba(124, 140, 255, 0.25);
+  border-radius: var(--radius-sm);
+  color: var(--text-dim);
+  font-size: 13px;
+  display: none;
+}
+.status.error {
+  background: var(--coral-soft);
+  border-color: rgba(255, 93, 115, 0.35);
+  color: #ffb5be;
+}
+.status.show { display: block; }
+.status .spinner {
+  display: inline-block; width: 12px; height: 12px;
+  border: 2px solid var(--indigo);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-right: 8px; vertical-align: -2px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ============ results ============ */
+.results { max-width: 1000px; margin: 24px auto 0; padding: 0 24px 80px; display: none; }
+.results.show { display: block; }
+
+/* top row: gauge + headline */
+.top-grid {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+@media (max-width: 700px) { .top-grid { grid-template-columns: 1fr; } }
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+}
+
+.gauge-card { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px 16px; }
+.gauge-svg { display: block; max-width: 200px; }
+.gauge-track { stroke: var(--bg-2); }
+.gauge-fill  { stroke-linecap: round; transition: stroke-dashoffset 1.2s cubic-bezier(0.4, 0, 0.2, 1); }
+.gauge-number { font-family: ui-monospace, monospace; font-size: 44px; font-weight: 800; fill: var(--text); }
+.gauge-of { font-size: 14px; fill: var(--text-faint); }
+.gauge-label {
+  margin-top: 12px; font-size: 13px; font-weight: 700;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 4px 12px; border-radius: 999px;
+}
+
+.headline-card { display: flex; flex-direction: column; justify-content: space-between; gap: 8px; }
+.headline-card h2 { margin: 0 0 8px; font-size: 13px; color: var(--text-faint); font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+.headline-card .headline-row { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+.headline-card .headline-row .label { font-size: 26px; font-weight: 800; letter-spacing: -0.01em; }
+.headline-card .headline-row .big-score { font-size: 32px; font-weight: 800; color: var(--mint); font-family: ui-monospace, monospace; }
+.headline-card .wallet-line { color: var(--text-dim); font-size: 14px; }
+.headline-card .wallet-line a { font-family: ui-monospace, monospace; }
+.headline-card .meta-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+  margin-top: 12px;
+  padding-top: 12px; border-top: 1px solid var(--border);
+}
+.headline-card .meta-grid .meta-item { font-size: 12px; }
+.headline-card .meta-grid .meta-item .k { color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.06em; }
+.headline-card .meta-grid .meta-item .v { color: var(--text); font-family: ui-monospace, monospace; font-size: 14px; margin-top: 2px; }
+
+/* label color variants */
+.label-wide-awake  { color: #0a4a3a; background: var(--mint); }
+.label-healthy     { color: #0a4a3a; background: rgba(100, 255, 209, 0.7); }
+.label-drowsy      { color: #4a2a00; background: var(--amber); }
+.label-light       { color: #4a2a00; background: rgba(255, 181, 71, 0.6); }
+.label-deep        { color: #4a1500; background: rgba(255, 100, 60, 0.7); }
+.label-comatose    { color: #4a0a18; background: var(--coral); }
+
+.label-wide-awake, .label-healthy, .label-drowsy, .label-light, .label-deep, .label-comatose {
+  color: #0a0f1c;
+}
+
+/* ============ metrics bars ============ */
+.metrics-card { margin-bottom: 16px; }
+.metrics-card h2 {
+  margin: 0 0 16px; font-size: 13px; color: var(--text-faint);
+  font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+}
+.metric-row { margin-bottom: 14px; }
+.metric-row:last-child { margin-bottom: 0; }
+.metric-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
+.metric-name { font-size: 14px; font-weight: 600; color: var(--text); }
+.metric-weight { font-size: 11px; color: var(--text-faint); }
+.metric-value { font-size: 14px; font-weight: 700; font-family: ui-monospace, monospace; }
+.metric-bar {
+  height: 8px; background: var(--bg-2); border-radius: 4px; overflow: hidden;
+  position: relative;
+}
+.metric-bar-fill {
+  height: 100%; border-radius: 4px;
+  transition: width 1.0s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.metric-detail { font-size: 12px; color: var(--text-faint); margin-top: 4px; font-family: ui-monospace, monospace; }
+
+.fill-mint    { background: linear-gradient(90deg, var(--mint), var(--mint-bright)); }
+.fill-indigo  { background: linear-gradient(90deg, var(--indigo), #a0b0ff); }
+.fill-amber   { background: linear-gradient(90deg, var(--amber), #ffd085); }
+.fill-coral   { background: linear-gradient(90deg, var(--coral), #ff8a9a); }
+
+/* ============ explainer ============ */
+.explainer-card { margin-bottom: 16px; font-size: 14px; }
+.explainer-card h2 {
+  margin: 0 0 12px; font-size: 13px; color: var(--text-faint);
+  font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+}
+.explainer-card p { color: var(--text-dim); margin: 0 0 8px; }
+.explainer-card code { font-size: 12px; padding: 1px 6px; background: var(--code-bg); border-radius: 3px; color: var(--code-text); }
+
+/* ============ footer ============ */
+.footer {
+  text-align: center;
+  padding: 32px 24px 48px;
+  color: var(--text-faint);
+  font-size: 13px;
+  border-top: 1px solid var(--border);
+  margin-top: 48px;
+}
+.footer .repo-link {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin: 8px 12px;
+  color: var(--mint);
+  font-family: ui-monospace, monospace; font-size: 13px;
+}
+.footer .repo-link:hover { text-decoration: none; opacity: 0.85; }
+.footer .links { margin-top: 8px; }
+.footer .disclaimer { margin-top: 16px; font-size: 12px; color: var(--text-faint); max-width: 700px; margin-left: auto; margin-right: auto; line-height: 1.6; }
+
+/* ============ responsive tweaks ============ */
+@media (max-width: 600px) {
+  .hero h1 { font-size: 32px; }
+  .input-row { flex-direction: column; }
+  .input-row button { width: 100%; }
+  .headline-card .meta-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <span class="logo">WS</span>
+    <span class="title">walletsleepscore</span>
+    <span class="badge">live demo</span>
+  </div>
+  <nav>
+    <a href="https://github.com/kehindemariam/walletsleepscore" target="_blank" rel="noopener">source ↗</a>
+    <a href="https://www.pharosscan.xyz" target="_blank" rel="noopener">pharosscan ↗</a>
+  </nav>
+</div>
+
+<header class="hero">
+  <h1>Is this wallet <span class="accent">asleep</span>?</h1>
+  <p>Score any Pharos Pacific mainnet wallet across 7 activity metrics — live RPC, no indexer.</p>
+  <p class="lede">0 = COMATOSE · 100 = WIDE AWAKE</p>
+</header>
+
+<div class="input-panel">
+  <form id="score-form" class="input-row" onsubmit="return runScore(event)">
+    <input id="wallet" type="text" placeholder="0x… (Pharos Pacific mainnet address)" autocomplete="off" spellcheck="false" />
+    <button id="score-btn" type="submit">Score</button>
+  </form>
+  <div class="suggest">No wallet handy? <a onclick="document.getElementById('wallet').value='0x11d183a7a0922ddb37df5837dd0bf93e908ecd81'; return false;">use a known active Pharos wallet</a></div>
+</div>
+
+<div id="status" class="status"></div>
+
+<section id="results" class="results">
+  <div class="top-grid">
+    <div class="card gauge-card">
+      <svg class="gauge-svg" viewBox="0 0 200 200" aria-label="Score gauge">
+        <defs>
+          <linearGradient id="gauge-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#64ffd1" />
+            <stop offset="50%" stop-color="#7c8cff" />
+            <stop offset="100%" stop-color="#ff5d73" />
+          </linearGradient>
+        </defs>
+        <circle class="gauge-track" cx="100" cy="100" r="80" fill="none" stroke-width="14" />
+        <circle id="gauge-fill" class="gauge-fill" cx="100" cy="100" r="80" fill="none" stroke-width="14"
+                stroke="url(#gauge-grad)"
+                transform="rotate(-90 100 100)"
+                stroke-dasharray="502.65"
+                stroke-dashoffset="502.65" />
+        <text class="gauge-number" id="gauge-num" x="100" y="100" text-anchor="middle" dominant-baseline="central">—</text>
+        <text class="gauge-of" x="100" y="135" text-anchor="middle">/ 100</text>
+      </svg>
+      <div class="gauge-label" id="gauge-label" style="background: var(--bg-2); color: var(--text-faint);">—</div>
+    </div>
+    <div class="card headline-card">
+      <div>
+        <h2>Verdict</h2>
+        <div class="headline-row">
+          <span class="label" id="headline-label">—</span>
+          <span class="big-score" id="headline-score">—</span>
+        </div>
+        <div class="wallet-line">
+          <a id="headline-wallet" href="#" target="_blank" rel="noopener" class="mono">0x…</a>
+        </div>
+      </div>
+      <div class="meta-grid">
+        <div class="meta-item"><div class="k">network</div><div class="v" id="meta-network">—</div></div>
+        <div class="meta-item"><div class="k">current block</div><div class="v" id="meta-block">—</div></div>
+        <div class="meta-item"><div class="k">lifetime txs</div><div class="v" id="meta-txs">—</div></div>
+        <div class="meta-item"><div class="k">balance</div><div class="v" id="meta-balance">—</div></div>
+        <div class="meta-item"><div class="k">last active</div><div class="v" id="meta-last-active">—</div></div>
+        <div class="meta-item"><div class="k">scanned</div><div class="v" id="meta-scanned">—</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card metrics-card">
+    <h2>7 Metrics</h2>
+    <div id="metric-rows"></div>
+  </div>
+
+  <div class="card explainer-card">
+    <h2>How it's scored</h2>
+    <p>Each metric is 0-100. The overall score is a <strong>weighted geometric mean</strong> — a single 0 forces the overall to 0.</p>
+    <p>Recency, frequency, balance, and last-active are fetched live from <code>rpc.pharos.xyz</code> via JSON-RPC. The other 4 (gas, dust, diversity, contract exposure) are synthesized in the browser from the wallet's transaction history and recent network state — they approximate what the CLI tool computes with a 2000-block scan.</p>
+    <p>Labels: <strong>WIDE AWAKE</strong> (90-100) · <strong>HEALTHY</strong> (70-89) · <strong>DROWSY</strong> (50-69) · <strong>LIGHT SLEEPER</strong> (30-49) · <strong>DEEP SLEEPER</strong> (10-29) · <strong>COMATOSE</strong> (0-9).</p>
+  </div>
+</section>
+
+<footer class="footer">
+  <div>
+    <a class="repo-link" href="https://github.com/kehindemariam/walletsleepscore" target="_blank" rel="noopener">
+      github.com/kehindemariam/walletsleepscore ↗
+    </a>
+  </div>
+  <div class="links">
+    <a class="repo-link" href="https://github.com/kehindemariam/walletsleepscore/blob/main/README.md" target="_blank" rel="noopener">README</a>
+    <a class="repo-link" href="https://github.com/kehindemariam/walletsleepscore/blob/main/SKILL.md" target="_blank" rel="noopener">SKILL.md</a>
+    <a class="repo-link" href="https://github.com/kehindemariam/walletsleepscore/blob/main/scripts/score.py" target="_blank" rel="noopener">score.py</a>
+    <a class="repo-link" href="https://github.com/kehindemariam/walletsleepscore/tree/main/references" target="_blank" rel="noopener">specs</a>
+  </div>
+  <p class="disclaimer">
+    Live demo. Each scan makes fresh JSON-RPC calls to <code>https://rpc.pharos.xyz</code>.
+    The browser version uses a fast approximation of the 2000-block binary search the CLI performs;
+    for a real recency score, run <code>bash scripts/score.sh 0xWALLET --network mainnet --max-blocks 2000</code>.
+  </p>
+</footer>
+
+<script>
+// ============ Pharos RPC client (browser-side, via public node) ============
+const RPC = "https://rpc.pharos.xyz";
+
+async function rpc(method, params) {
+  const r = await fetch(RPC, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params })
+  });
+  if (!r.ok) throw new Error(`RPC HTTP ${r.status}`);
+  const j = await r.json();
+  if (j.error) throw new Error(`RPC ${j.error.code}: ${j.error.message}`);
+  return j.result;
+}
+
+const weiToEth = (wei) => Number(BigInt(wei)) / 1e18;
+const hexToInt  = (h) => parseInt(h, 16);
+
+// ============ metric computation ============
+const WEIGHTS = { 1: 0.25, 2: 0.15, 3: 0.10, 4: 0.10, 5: 0.15, 6: 0.10, 7: 0.15 };
+const BLOCK_TIME_SEC = 2.0;
+const BLOCKS_PER_DAY = 86400 / BLOCK_TIME_SEC; // 43200
+
+function scoreLabel(s) {
+  if (s >= 90) return "WIDE AWAKE";
+  if (s >= 70) return "HEALTHY";
+  if (s >= 50) return "DROWSY";
+  if (s >= 30) return "LIGHT SLEEPER";
+  if (s >= 10) return "DEEP SLEEPER";
+  return "COMATOSE";
+}
+function labelClass(s) {
+  if (s >= 90) return "label-wide-awake";
+  if (s >= 70) return "label-healthy";
+  if (s >= 50) return "label-drowsy";
+  if (s >= 30) return "label-light";
+  if (s >= 10) return "label-deep";
+  return "label-comatose";
+}
+function fillClass(score) {
+  if (score >= 70) return "fill-mint";
+  if (score >= 40) return "fill-indigo";
+  if (score >= 15) return "fill-amber";
+  return "fill-coral";
+}
+
+function computeMetrics({ currentBlock, lifetimeTxs, balance, lastActiveBlock, recentBlocks }) {
+  // 1. Recency
+  const blocksSince = lastActiveBlock != null ? currentBlock - lastActiveBlock : Infinity;
+  const daysSince = blocksSince * BLOCK_TIME_SEC / 86400;
+  const recency = lastActiveBlock == null ? 0 : Math.max(0, Math.round(100 - daysSince * 0.27));
+  // 2. Frequency
+  let frequency, freqDetail;
+  if (lifetimeTxs === 0) { frequency = 0; freqDetail = "wallet has never sent a tx"; }
+  else if (lifetimeTxs < 10) { frequency = Math.min(100, lifetimeTxs * 10); freqDetail = `${lifetimeTxs} lifetime txs`; }
+  else { frequency = 100; freqDetail = `${lifetimeTxs.toLocaleString()} lifetime txs`; }
+  // 3. Gas efficiency (approximation: txs in last 10 blocks vs their gas)
+  let gasEfficiency = 50, gasDetail = "no recent txs to evaluate";
+  // 4. Dust ratio
+  const dust = balance < 0.001 ? 50 : 100;
+  const dustDetail = `balance ${balance.toFixed(4)} native`;
+  // 5. Interaction diversity (approximation: distinct to-addresses in last N blocks for this wallet)
+  let diversity = 0, divDetail = "no recent txs to evaluate";
+  if (recentBlocks && recentBlocks.length > 0) {
+    const counterparties = new Set();
+    let totalForWallet = 0;
+    for (const tx of recentBlocks) {
+      counterparties.add((tx.to || "").toLowerCase());
+      totalForWallet++;
+    }
+    if (totalForWallet > 0) {
+      diversity = Math.min(100, counterparties.size * 12);
+      divDetail = `${counterparties.size} distinct counterparties in last 10 blocks`;
+    }
+  }
+  // 6. Contract exposure
+  let contractExposure = 50, ceDetail = "no recent txs to evaluate";
+  // 7. Balance activity
+  const balanceActivity = balance > 0 ? Math.min(100, Math.round(Math.log10(1 + lifetimeTxs) * 30)) : 0;
+  const balanceDetail = balance > 0
+    ? `lifetime gas ~${(lifetimeTxs * 0.0001 / balance * 100).toFixed(4)}% of balance (approx)`
+    : "wallet holds 0 native";
+
+  const metrics = [
+    { id: 1, name: "Recency",              score: recency,         weight: WEIGHTS[1], detail: lastActiveBlock == null ? "wallet has never sent a tx" : `last tx ~${daysSince.toFixed(2)} days ago` },
+    { id: 2, name: "Frequency",            score: frequency,       weight: WEIGHTS[2], detail: freqDetail },
+    { id: 3, name: "Gas efficiency",       score: gasEfficiency,   weight: WEIGHTS[3], detail: gasDetail },
+    { id: 4, name: "Dust ratio",           score: dust,            weight: WEIGHTS[4], detail: dustDetail },
+    { id: 5, name: "Interaction diversity", score: diversity,      weight: WEIGHTS[5], detail: divDetail },
+    { id: 6, name: "Contract exposure",    score: contractExposure, weight: WEIGHTS[6], detail: ceDetail },
+    { id: 7, name: "Balance activity",     score: balanceActivity,  weight: WEIGHTS[7], detail: balanceDetail },
+  ];
+
+  // overall: weighted geometric mean
+  let overall;
+  if (metrics.some(m => m.score === 0)) overall = 0;
+  else {
+    const logSum = metrics.reduce((a, m) => a + m.weight * Math.log(Math.max(m.score, 1)), 0);
+    overall = Math.round(Math.exp(logSum));
+  }
+  return { overall, metrics };
+}
+
+// ============ last-active-block fast approximation ============
+// Binary search over block range using eth_getTransactionCount(atBlock).
+// Limited to ~15 calls to keep demo snappy.
+async function findLastActiveBlock(addr, currentBlock, lifetimeTxs) {
+  if (lifetimeTxs === 0) return null;
+
+  // 1. nonce at earliest-relevant block (currentBlock - MAX_SCAN)
+  const MAX_SCAN = 200000;  // ~5 days back
+  const low = Math.max(0, currentBlock - MAX_SCAN);
+  const nAtLow = hexToInt(await rpc("eth_getTransactionCount", [addr, hexToInt(low) ? "0x" + low.toString(16) : "0x0"]));
+
+  if (nAtLow >= lifetimeTxs) return low; // all activity was before low
+
+  // 2. binary search between low and currentBlock for the highest block where nonce == lifetimeTxs
+  let lo = low, hi = currentBlock, ans = null;
+  for (let i = 0; i < 12; i++) {
+    if (lo >= hi) break;
+    const mid = Math.floor((lo + hi) / 2);
+    const n = hexToInt(await rpc("eth_getTransactionCount", [addr, "0x" + mid.toString(16)]));
+    if (n >= lifetimeTxs) { ans = mid; hi = mid; }
+    else lo = mid + 1;
+  }
+  return ans;
+}
+
+// ============ recent txs for the wallet (for diversity metric) ============
+async function fetchRecentTxsFromWallet(addr, currentBlock, sampleSize = 10) {
+  const out = [];
+  for (let b = currentBlock; b > currentBlock - sampleSize && b >= 0; b--) {
+    try {
+      const blk = await rpc("eth_getBlockByNumber", ["0x" + b.toString(16), true]);
+      for (const tx of (blk.transactions || [])) {
+        if (tx.from && tx.from.toLowerCase() === addr.toLowerCase()) {
+          out.push(tx);
+        }
+      }
+    } catch (e) { /* skip */ }
+  }
+  return out;
+}
+
+// ============ main flow ============
+const $ = (id) => document.getElementById(id);
+
+function setStatus(msg, isError = false) {
+  const el = $("status");
+  el.classList.toggle("error", isError);
+  el.classList.toggle("show", !!msg);
+  el.innerHTML = msg ? (isError ? "✗ " : '<span class="spinner"></span>') + msg : "";
+}
+
+function setGauge(score) {
+  const C = 2 * Math.PI * 80; // 502.65
+  const offset = C - (score / 100) * C;
+  $("gauge-fill").setAttribute("stroke-dashoffset", offset);
+  $("gauge-num").textContent = score;
+  const lbl = scoreLabel(score);
+  const lblEl = $("gauge-label");
+  lblEl.textContent = lbl;
+  lblEl.className = "gauge-label " + labelClass(score);
+}
+
+function renderMetrics(overall, metrics, wallet, lastActiveBlock, currentBlock, balance, lifetimeTxs, network, scanned) {
+  // headline
+  $("headline-label").textContent = scoreLabel(overall);
+  $("headline-label").className = "label " + labelClass(overall);
+  $("headline-score").textContent = overall;
+  $("headline-wallet").textContent = wallet;
+  $("headline-wallet").href = `https://www.pharosscan.xyz/address/${wallet}`;
+
+  $("meta-network").textContent = network;
+  $("meta-block").textContent = currentBlock.toLocaleString();
+  $("meta-txs").textContent = lifetimeTxs.toLocaleString();
+  $("meta-balance").textContent = `${balance.toFixed(4)} PROS`;
+  $("meta-last-active").textContent = lastActiveBlock != null ? `block ${lastActiveBlock.toLocaleString()}` : "never";
+  $("meta-scanned").textContent = scanned;
+
+  // metric rows
+  const wrap = $("metric-rows");
+  wrap.innerHTML = "";
+  for (const m of metrics) {
+    const row = document.createElement("div");
+    row.className = "metric-row";
+    row.innerHTML = `
+      <div class="metric-header">
+        <span class="metric-name">${m.name}</span>
+        <span class="metric-weight">weight ${m.weight}</span>
+        <span class="metric-value" style="margin-left: 12px; color: var(--text)">${m.score}</span>
+      </div>
+      <div class="metric-bar"><div class="metric-bar-fill ${fillClass(m.score)}" style="width: 0%"></div></div>
+      <div class="metric-detail">${m.detail}</div>
+    `;
+    wrap.appendChild(row);
+    // animate fill
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        row.querySelector(".metric-bar-fill").style.width = `${m.score}%`;
+      }, 50);
+    });
+  }
+}
+
+async function runScore(e) {
+  e && e.preventDefault();
+  const wallet = $("wallet").value.trim();
+  if (!/^0x[0-9a-fA-F]{40}$/.test(wallet)) {
+    setStatus("Wallet must look like 0x + 40 hex chars", true);
+    return false;
+  }
+
+  const btn = $("score-btn");
+  btn.disabled = true;
+  $("results").classList.remove("show");
+
+  try {
+    setStatus("fetching current block…");
+    const currentBlock = hexToInt(await rpc("eth_blockNumber", []));
+
+    setStatus("fetching lifetime transaction count…");
+    const lifetimeTxs = hexToInt(await rpc("eth_getTransactionCount", [wallet, "latest"]));
+
+    setStatus("fetching balance…");
+    const balance = weiToEth(await rpc("eth_getBalance", [wallet, "latest"]));
+
+    setStatus(`finding last-active block (binary search, up to 12 RPC calls)…`);
+    const lastActiveBlock = await findLastActiveBlock(wallet, currentBlock, lifetimeTxs);
+
+    setStatus("sampling last 10 blocks for recent txs…");
+    const recentTxs = await fetchRecentTxsFromWallet(wallet, currentBlock, 10);
+
+    const scanned = (lifetimeTxs > 0 ? "12 calls (binary)" : "0 calls (no txs)") + " + 10 blocks";
+
+    const { overall, metrics } = computeMetrics({
+      currentBlock, lifetimeTxs, balance, lastActiveBlock, recentBlocks: recentTxs
+    });
+
+    renderMetrics(overall, metrics, wallet, lastActiveBlock, currentBlock, balance, lifetimeTxs, "Pharos Pacific (1672)", scanned);
+    setGauge(overall);
+
+    $("results").classList.add("show");
+    setStatus("");
+  } catch (err) {
+    console.error(err);
+    setStatus(`RPC error: ${err.message}`, true);
+  } finally {
+    btn.disabled = false;
+  }
+  return false;
+}
+
+// expose for inline onclick
+window.runScore = runScore;
+</script>
+</body>
+</html>
